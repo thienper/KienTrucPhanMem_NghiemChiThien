@@ -8,7 +8,7 @@ Bai tap mon Kien truc he thong voi de tai **Online Food Delivery**.
 
 - [x] Phan 1 - Bai 4: Monolith -> Service-based -> Microservices migration (tai lieu + so do)
 - [x] Phan 2 - Code 3 (ReactJS + Backend) theo huong Mono
-- [ ] Phan 3 - Chuyen doi sang Service-based -> Micro 7 (online/offline)
+- [x] Phan 3 - Chuyen doi sang Service-based -> Micro 7 (online/offline)
 
 ## Cac file quan trong
 
@@ -17,6 +17,7 @@ Bai tap mon Kien truc he thong voi de tai **Online Food Delivery**.
 - `diagrams/ContextMap.md`: Context map.
 - `diagrams/CommunicationDiagram.md`: Sync vs Async communication diagram.
 - `part2-mono/README.md`: Huong dan chay va minh chung cho Phan 2.
+- `part3-migration/README.md`: Huong dan chay Service-based va Micro 7 (online/offline).
 
 ## Cach chup minh chung Phan 1
 

@@ -1,0 +1,38 @@
+{
+    "restaurants": [
+        {
+            "id": "r1",
+            "name": "Bun Bo Hue Co Lan",
+            "deliveryFee": 15000,
+            "menu": [
+                {
+                    "id": "m1",
+                    "name": "Bun Bo Dac Biet",
+                    "price": 55000
+                },
+                {
+                    "id": "m2",
+                    "name": "Cha Gio",
+                    "price": 30000
+                }
+            ]
+        },
+        {
+            "id": "r2",
+            "name": "Com Tam Sai Gon 1988",
+            "deliveryFee": 12000,
+            "menu": [
+                {
+                    "id": "m3",
+                    "name": "Com Tam Suon Bi Cha",
+                    "price": 50000
+                },
+                {
+                    "id": "m4",
+                    "name": "Com Ga Nuong",
+                    "price": 48000
+                }
+            ]
+        }
+    ]
+}

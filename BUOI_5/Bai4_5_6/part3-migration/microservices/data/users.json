@@ -1,0 +1,9 @@
+{
+    "users": [
+        {
+            "id": "u1",
+            "fullName": "Nguyen Van A",
+            "tier": "GOLD"
+        }
+    ]
+}
