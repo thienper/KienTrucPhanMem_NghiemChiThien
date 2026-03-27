@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Shared by all parts)
+  postgres:
+    image: postgres:15-alpine
+    container_name: bai3-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bai3-network
+
+  # ==================== PART 3: Service-Based Architecture ====================
+  
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./part3-service-based/api-gateway
+      dockerfile: Dockerfile
+    container_name: bai3-api-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      USER_SERVICE_URL: http://user-service:5001
+      PRODUCT_SERVICE_URL: http://product-service:5002
+      ORDER_SERVICE_URL: http://order-service:5003
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - bai3-network
+    command: npm start
+
+  # User Service
+  user-service:
+    build:
+      context: ./part3-service-based/user-service
+      dockerfile: Dockerfile
+    container_name: bai3-user-service
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: 5001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bai3-network
+    command: npm start
+
+  # Product Service
+  product-service:
+    build:
+      context: ./part3-service-based/product-service
+      dockerfile: Dockerfile
+    container_name: bai3-product-service
+    ports:
+      - "5002:5002"
+    environment:
+      PORT: 5002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bai3-network
+    command: npm start
+
+  # Order Service
+  order-service:
+    build:
+      context: ./part3-service-based/order-service
+      dockerfile: Dockerfile
+    container_name: bai3-order-service
+    ports:
+      - "5003:5003"
+    environment:
+      PORT: 5003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres123
+      USER_SERVICE_URL: http://user-service:5001
+      PRODUCT_SERVICE_URL: http://product-service:5002
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bai3-network
+    command: npm start
+
+volumes:
+  postgres_data:
+
+networks:
+  bai3-network:
+    driver: bridge
