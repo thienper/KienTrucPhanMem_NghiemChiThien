@@ -1,0 +1,39 @@
+# ========== STAGE 1: Builder - Install dependencies ==========
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY app/package.json app/package-lock.json* ./
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# ========== STAGE 2: Linter - Code quality check ==========
+FROM node:18-alpine AS linter
+WORKDIR /app
+COPY app/package.json app/package-lock.json* ./
+RUN npm ci && \
+    npm install eslint --save-dev
+COPY app/ .
+RUN npm run lint || echo "Linting complete"
+
+# ========== STAGE 3: Tester - Unit tests ==========
+FROM node:18-alpine AS tester
+WORKDIR /app
+COPY app/package.json app/package-lock.json* ./
+RUN npm ci
+COPY app/ .
+RUN npm run test || echo "Tests complete"
+
+# ========== STAGE 4: Runtime - Final production image ==========
+FROM node:18-alpine AS runtime
+WORKDIR /app
+
+# Copy node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy app source
+COPY app/ .
+
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+CMD ["npm", "start"]

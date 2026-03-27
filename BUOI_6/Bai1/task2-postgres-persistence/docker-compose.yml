@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # ========== PostgreSQL Service ==========
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: postgres_persistence
+    environment:
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: app_db
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persistent volume - dữ liệu được lưu ở đây
+      - postgres_data:/var/lib/postgresql/data
+      # Mount init script
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+# ========== Volumes ==========
+volumes:
+  # Named volume - quản lý bởi Docker
+  postgres_data:
+    driver: local
+
+# ========== Networks ==========
+networks:
+  app_network:
+    driver: bridge
