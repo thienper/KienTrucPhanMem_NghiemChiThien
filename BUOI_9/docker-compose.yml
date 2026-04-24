@@ -1,0 +1,153 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  BUOI_9 – Space-Based Architecture
+#  MariaDB LOCAL + Redis + RabbitMQ (Docker) + microservices
+#
+#  Cách chạy:
+#    1. Import db/init.sql vào MariaDB local
+#    2. docker compose up -d --build
+#    3. cd seeder && npm install && npm run start:local
+#    4. Test với Postman tại http://localhost:8080
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  buoi9-net:
+    driver: bridge
+
+services:
+  # ── Redis Data Grid ───────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: buoi9-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - buoi9-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── RabbitMQ Message Broker ───────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: buoi9-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"         # AMQP
+      - "15672:15672"       # Management UI → http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - buoi9-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # ── PU1: Product Service ──────────────────────────────────────────────────
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    container_name: buoi9-product
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3001:3001"
+    networks:
+      - buoi9-net
+
+  # ── DB Writer (Data Pump) ─────────────────────────────────────────────────
+  db-writer:
+    build:
+      context: ./services/db-writer
+      dockerfile: Dockerfile
+    container_name: buoi9-db-writer
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      DB_HOST: host.docker.internal     # MariaDB LOCAL trên máy host
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: buoi9_sba
+    networks:
+      - buoi9-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux compatibility
+
+  # ── Cache Loader (On-demand DB→Redis) ────────────────────────────────────
+  # Khi Redis miss → Product Service publish cache.miss → Service này load MariaDB → Redis
+  cache-loader:
+    build:
+      context: ./services/cache-loader
+      dockerfile: Dockerfile
+    container_name: buoi9-cache-loader
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3010
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DB_HOST: host.docker.internal
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: buoi9_sba
+    ports:
+      - "3010:3010"        # Admin API: POST /reload, POST /reload/:id
+    networks:
+      - buoi9-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── API Gateway ───────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: buoi9-gateway
+    restart: unless-stopped
+    depends_on:
+      - product-service
+      - cache-loader
+    environment:
+      PORT: 8080
+      PRODUCT_SERVICE_URL: http://product-service:3001
+      CACHE_LOADER_URL: http://cache-loader:3010
+    ports:
+      - "8080:8080"
+    networks:
+      - buoi9-net
+
+volumes:
+  redis-data:
+  rabbitmq-data:
